@@ -9,49 +9,63 @@ GUESSING(){
 if [[ $1 ]]
   then 
   echo -e "$1"
+  else
+  echo -e "\nGuess the secret number between 1 and 1000:"
 fi  
-echo "Guess the secret number between 1 and 1000:"
 read GUSSSED_NUM
 if [[ ! $GUSSSED_NUM =~ ^[0-9]+$ ]]
   then 
-     GUESSING "That is not an integer, guess again:"
+     ((COUNT++))
+     GUESSING "\nThat is not an integer, guess again:"
 elif [[ $GUSSSED_NUM -gt $RND ]]
    then  
-   $COUNT=$((COUNT + 1))
+   ((COUNT++))
    GUESSING "\nIt's lower than that, guess again:"     
  elif [[ $GUSSSED_NUM -lt $RND ]]
   then 
-  $COUNT=$((COUNT + 1))
+  ((COUNT++))
   GUESSING "\nIt's higher than that, guess again:"  
- else 
-   echo "You guessed it in <number_of_guesses> tries. The secret number was <secret_number>. Nice job!"   
+ else
+   ((COUNT++))
+   echo -e "\nYou guessed it in $COUNT tries. The secret number was $RND. Nice job!"   
 fi    
 }     
 
-  
-echo -e "Enter your username:"
+MAIN_MENU(){  
+if [[ $1 ]]
+then
+  echo -e "\n$1"
+else 
+  echo "Enter your username:"  
+fi
 read USERNAME
- NAME_EXISTENT=$($PSQL "SELECT username, games_count, best_game FROM users WHERE username='$USERNAME'")
+if [[ -z $USERNAME ]]
+ then MAIN_MENU "Please Enter your username to start:"
+else
+ NAME_EXISTENT=$($PSQL "SELECT username, games_played, best_game FROM users WHERE username='$USERNAME'")
   if [[ -z $NAME_EXISTENT ]]
     then
        echo -e "\nWelcome, $USERNAME! It looks like this is your first time here."
        GUESSING
-       $($PSQL "INSERT INTO users(username, game_count, best_game) values($USERNAME, $COUNT, $COUNT)")
+       INSERT_RESULT=$($PSQL "INSERT INTO users(username, games_played, best_game) values('$USERNAME', 1, $COUNT)")
+       echo $INSERT_RESULT
     else 
-    echo $NAME_EXISTENT | while IFS='|' read NAME, GAMES, BEST 
-    do
-       echo -e "\nWelcome back, $USERNAME! You have played $GAMES games, and your best game took BEST guesses."
-       GUESSING
-       if [[ $BEST -lt $COUNT ]]
-       then
-       $($PSQL "update users set game_count = $COUNT+1  best_game=$COUNT")
-       else
-       $($PSQL "update users set game_count = $COUNT+1")
-  fi   
-  done
-  fi
+    IFS='|' read NAME GAMES BEST <<< "$NAME_EXISTENT"
 
-  
+       echo -e "\nWelcome back, $NAME! You have played $GAMES games, and your best game took $BEST guesses."
+       
+       GUESSING
+       if [[ $BEST -gt $COUNT ]]
+       then
+       UPDATE_RESULT=$($PSQL "update users set games_played = games_played+1, best_game = $COUNT WHERE username='$USERNAME'")
+       else
+       UPDATE_RESULT=$($PSQL "update users set games_played = games_played+1 WHERE username='$USERNAME'")
+  fi   
+  fi
+  fi
+}
+
+MAIN_MENU  
 
 
 
